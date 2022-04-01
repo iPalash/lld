@@ -15,7 +15,8 @@ class Board:
         self.board = [[0 for _ in range(m)] for _ in range(n)]
         self.horizontal = [[0 for _ in range(m)] for _ in range(n)]
         self.vertical = [[0 for _ in range(m)] for _ in range(n)]
-        self.diagonal = [[0 for _ in range(m)] for _ in range(n)]
+        self.diagonal1 = [[0 for _ in range(m)] for _ in range(n)]
+        self.diagonal2 = [[0 for _ in range(m)] for _ in range(n)]
 
         self.top = [0 for _ in range(m)]
 
@@ -97,32 +98,40 @@ class Board:
         sm = 0
         for [a,b] in self.neighbors(row,col,'d1'):
             if self.board[a][b]==curr:
-                sm+=self.diagonal[a][b]
-        self.diagonal[row][col]=sm+1 # 
+                sm+=self.diagonal1[a][b]
+        print('updating d1 with val',sm+1)
+
+        self.diagonal1[row][col]=sm+1 # 
         # Update d1
         for [a,b] in self.allUpto(row,col,'ru'):
-            self.diagonal[a][b]=sm+1
+            print('updating d1 -> ru with val',sm+1,(a,b))
+            self.diagonal1[a][b]=sm+1
         
         for [a,b] in self.allUpto(row,col,'ld'):
-            self.diagonal[a][b]=sm+1
+
+            print('updating d1 -> ld with val',sm+1,(a,b))
+            self.diagonal1[a][b]=sm+1
 
 
         #Diagonal \
         sm = 0
         for [a,b] in self.neighbors(row,col,'d2'):
             if self.board[a][b]==curr:
-                sm+=self.diagonal[a][b]
-        self.diagonal[row][col]=max(self.diagonal[row][col],sm+1)
-        # Update vertical
+                sm+=self.diagonal2[a][b]
+        self.diagonal2[row][col]=sm+1
+        print('updating d2 with val',sm+1)  
+        # Update diagonal
         for [a,b] in self.allUpto(row,col,'lu'):
-            self.diagonal[a][b]=sm+1
+            print('updating d2 -> lu with val',sm+1,(a,b))
+            self.diagonal2[a][b]=sm+1
         
         for [a,b] in self.allUpto(row,col,'rd'):
-            self.diagonal[a][b]=sm+1
+            print('updating d2 -> rd with val',sm+1,(a,b))
+            self.diagonal2[a][b]=sm+1
 
         
 
-        return max(self.horizontal[row][col],self.vertical[row][col],self.diagonal[row][col])==self.k
+        return max(self.horizontal[row][col],self.vertical[row][col],self.diagonal1[row][col],self.diagonal2[row][col])==self.k
         
 
 
@@ -162,15 +171,9 @@ class Game:
 
             self.board.print()
             if won:
-                print("H:V:D")
-                for h in self.board.horizontal[::-1]:
+                print("H:V:D1:D2")
+                for h in zip(self.board.horizontal[::-1],self.board.vertical[::-1],self.board.diagonal1[::-1],self.board.diagonal2[::-1]):
                     print(h)
-                print()
-                for v in self.board.vertical[::-1]:
-                    print(v)
-                print()
-                for d in self.board.diagonal[::-1]:
-                    print(d)
                 print()
                 print(active,"wins")
                 break
