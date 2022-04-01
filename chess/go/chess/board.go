@@ -85,7 +85,29 @@ func (b *Board) Remove(p Position) {
 	}
 }
 
-func (b *Board) Move(move Move) {
+func (b *Board) Check(c Color) bool {
+
+	otherColor := White
+	if c == White {
+		otherColor = Black
+	}
+	check := false
+	for _, box := range b.pieces[otherColor] {
+		for _, move := range box.piece.GetMoves(*b, *box.pos) {
+			attacked := b.At(move.destination)
+			if attacked.piece != nil {
+				if _, ok := (attacked.piece).(*King); ok {
+					fmt.Println(box.piece, " attacking ", attacked.piece)
+					check = true
+				}
+			}
+		}
+	}
+
+	return check
+}
+
+func (b *Board) Move(move Move) error {
 	fmt.Println("Making a move", move)
 	piece := b.At(move.source).piece
 	b.Remove(move.source)
@@ -93,7 +115,7 @@ func (b *Board) Move(move Move) {
 	if capture.piece != nil {
 		fmt.Println("Capturing:", piece, capture.piece)
 		if strings.ToLower(capture.piece.Short()) == "k" {
-			fmt.Println("game over ")
+			return fmt.Errorf("Game over")
 
 		}
 		capture.piece.Kill()
@@ -103,6 +125,11 @@ func (b *Board) Move(move Move) {
 	capture.piece = piece
 
 	b.pieces[piece.Color()] = append(b.pieces[piece.Color()], capture)
+
+	return nil
+}
+
+func (b *Board) updateAttackers(move Move) {
 
 }
 

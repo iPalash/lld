@@ -36,15 +36,20 @@ func (g *Game) Start() {
 		// Get all alive pieces for the player
 
 		boxes := g.board.pieces[activePlayer.color]
-		print(boxes)
+		// print(boxes)
 
 		// Get all posible moves for all the pieces
 
 		var moves []Move
 
-		for _, box := range boxes {
+		isCheck := g.board.Check(activePlayer.color)
 
-			moves = append(moves, box.piece.GetMoves(g.board, *box.pos)...)
+		for _, box := range boxes {
+			if !isCheck {
+				moves = append(moves, box.piece.GetMoves(g.board, *box.pos)...)
+			} else {
+				// Only consider moves which cancel the check
+			}
 		}
 		if len(moves) == 0 {
 			// Either stale or check mate
@@ -55,9 +60,13 @@ func (g *Game) Start() {
 		fmt.Printf("Moves possible %d \n", len(moves))
 		choice := rand.Intn(len(moves))
 
-		g.board.Move(moves[choice])
+		err := g.board.Move(moves[choice])
+		if err != nil {
+			fmt.Println(activePlayer, " wins")
+			break
+		}
 		g.board.Print()
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 300)
 
 		// Check endGame
 
