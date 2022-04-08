@@ -40,9 +40,13 @@ func (t *TopicImpl) AddSubscription(s Subscriber) {
 }
 
 func (t *TopicImpl) Size() int {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
 	return len(t.Msgs)
 }
 
 func (t *TopicImpl) Get(offset int) Message {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
 	return t.Msgs[offset]
 }
