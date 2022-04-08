@@ -27,11 +27,9 @@ func New(pub publisher.Publisher, topic string) Subscriber {
 func (s *SubscriberImpl) Start() {
 	go func() {
 		for {
-			if sz, err := s.pub.Size(s.topic); err == nil && sz > s.offset {
-				msg, _ := s.pub.Get(s.topic, s.offset)
-				s.execute(msg)
-				s.offset += 1
-			}
+			msg, _ := s.pub.Get(s.topic, s.offset)
+			s.execute(msg)
+			s.offset += 1
 		}
 	}()
 }

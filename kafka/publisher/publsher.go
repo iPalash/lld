@@ -23,6 +23,7 @@ type Publisher interface {
 type PublisherImpl struct {
 	receiver sync.Map
 	sizes    sync.Map
+	blocked  sync.Map
 	data     map[string][]message.Message
 }
 
@@ -73,12 +74,22 @@ func (p *PublisherImpl) Size(topic string) (int, error) {
 
 func (p *PublisherImpl) Get(topic string, offset int) (message.Message, error) {
 	if _, ok := p.checkTopic(topic); ok {
-		sz, _ := p.sizes.Load(topic)
-		if sz.(int) > offset {
-			return p.data[topic][offset], nil
-		} else {
-			// Block this until next value hasn't come
-			return message.Message{}, ErrorOffsetOverflow
+		for {
+			sz, _ := p.sizes.Load(topic)
+			if sz.(int) > offset {
+				return p.data[topic][offset], nil
+			} else {
+				// Block this until next value hasn't come
+				val, _ := p.blocked.Load(topic)
+				wait := make(chan struct{})
+				if val, ok := val.([](chan struct{})); ok {
+					p.blocked.Store(topic, append(val, wait))
+				} else {
+					p.blocked.Store(topic, [](chan struct{}){wait})
+				}
+
+				<-wait // Wait on this
+			}
 		}
 	} else {
 		return message.Message{}, ErrorTopicDoesNotExist
@@ -94,6 +105,13 @@ func (p *PublisherImpl) receive(topic string) {
 
 				sz, _ := p.sizes.Load(topic)
 				p.sizes.Store(topic, sz.(int)+1)
+				blockers, _ := p.blocked.Load(topic)
+				for blockers, ok := blockers.([]interface{}); ok; {
+					for _, block := range blockers {
+						(block.(chan struct{})) <- struct{}{}
+					}
+				}
+				p.blocked.Delete(topic)
 			}
 		}
 	}(topic)
