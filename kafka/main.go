@@ -32,5 +32,5 @@ func main() {
 
 	queue.NewSub(topic).Start()
 
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 1)
 }

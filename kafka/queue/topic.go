@@ -36,6 +36,8 @@ func (t *TopicImpl) Add(msg Message) {
 }
 
 func (t *TopicImpl) AddSubscription(s Subscriber) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	t.subs = append(t.subs, s)
 }
 
