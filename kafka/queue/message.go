@@ -1,9 +1,9 @@
-package message
+package queue
 
 type Message struct {
 	Text string
 }
 
-func New(s string) Message {
+func NewMessage(s string) Message {
 	return Message{s}
 }

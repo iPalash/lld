@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"kafka/message"
-	"kafka/publisher"
-	"kafka/subscriber"
+	"kafka/queue"
 	"math/rand"
 	"time"
 )
@@ -12,20 +10,27 @@ import (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	p := publisher.New()
-	topic := "t1"
-	p.CreateTopic(topic)
-	// p.CreateTopic("t1")
-	subscriber.New(p, topic).Start()
-	subscriber.New(p, topic).Start()
+	p := queue.New()
+	topicName := "topic1"
+	topic, _ := p.CreateTopic(topicName)
+
+	queue.NewSub(topic).Start()
+
+	queue.NewSub(topic).Start()
+
+	//Give some time for subs to start
+	time.Sleep(time.Millisecond * 10)
 
 	for i := 0; i < 5; i++ {
 		go func(idx int) {
-			p.Publish(topic, message.New(fmt.Sprint(i)))
-
+			p.Publish(topicName, queue.NewMessage(fmt.Sprint(idx)))
 		}(i)
 	}
 
-	p.Publish(topic, message.New("world"))
+	p.Publish(topicName, queue.NewMessage("world"))
+	time.Sleep(time.Second)
+
+	queue.NewSub(topic).Start()
+
 	time.Sleep(time.Second * 10)
 }
