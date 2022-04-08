@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"kafka/message"
 	"kafka/publisher"
 	"kafka/subscriber"
@@ -17,9 +18,14 @@ func main() {
 	// p.CreateTopic("t1")
 	subscriber.New(p, topic).Start()
 	subscriber.New(p, topic).Start()
-	subscriber.New(p, topic).Start()
 
-	p.Publish(topic, message.New("hello"))
+	for i := 0; i < 5; i++ {
+		go func(idx int) {
+			p.Publish(topic, message.New(fmt.Sprint(i)))
+
+		}(i)
+	}
+
 	p.Publish(topic, message.New("world"))
-	time.Sleep(time.Minute)
+	time.Sleep(time.Second * 10)
 }

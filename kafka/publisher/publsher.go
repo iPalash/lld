@@ -3,6 +3,7 @@ package publisher
 import (
 	"errors"
 	"kafka/message"
+	"sync"
 )
 
 var (
@@ -20,7 +21,9 @@ type Publisher interface {
 }
 
 type PublisherImpl struct {
-	data map[string][]message.Message
+	receiver sync.Map
+	sizes    sync.Map
+	data     map[string][]message.Message
 }
 
 func New() Publisher {
@@ -28,23 +31,31 @@ func New() Publisher {
 	return &PublisherImpl{data: data}
 }
 
-func (p *PublisherImpl) checkTopic(topic string) bool {
-	_, ok := p.data[topic]
-	return ok
+func (p *PublisherImpl) checkTopic(topic string) (chan message.Message, bool) {
+	val, ok := p.receiver.Load(topic)
+	if !ok {
+		return nil, ok
+	} else {
+		return val.(chan message.Message), ok
+	}
 }
 
 func (p *PublisherImpl) CreateTopic(topic string) error {
-	if p.checkTopic(topic) {
+	if _, ok := p.checkTopic(topic); ok {
 		return ErrorTopicAlreadyExists
 	} else {
-		p.data[topic] = []message.Message{}
+		p.receiver.Store(topic, make(chan message.Message))
+		p.sizes.Store(topic, 0)
+		p.receive(topic)
+		// p.data[topic] = []message.Message{}
 		return nil
 	}
 }
 
 func (p *PublisherImpl) Publish(topic string, m message.Message) error {
-	if p.checkTopic(topic) {
-		p.data[topic] = append(p.data[topic], m)
+	if val, ok := p.checkTopic(topic); ok {
+		val <- m
+		// p.data[topic] = append(p.data[topic], m)
 		return nil
 	} else {
 		return ErrorTopicDoesNotExist
@@ -52,21 +63,38 @@ func (p *PublisherImpl) Publish(topic string, m message.Message) error {
 }
 
 func (p *PublisherImpl) Size(topic string) (int, error) {
-	if v, ok := p.data[topic]; ok {
-		return len(v), nil
+	if _, ok := p.checkTopic(topic); ok {
+		sz, _ := p.sizes.Load(topic)
+		return sz.(int), nil
 	} else {
 		return -1, ErrorTopicDoesNotExist
 	}
 }
 
 func (p *PublisherImpl) Get(topic string, offset int) (message.Message, error) {
-	if v, ok := p.data[topic]; ok {
-		if len(v) > offset {
-			return v[offset], nil
+	if _, ok := p.checkTopic(topic); ok {
+		sz, _ := p.sizes.Load(topic)
+		if sz.(int) > offset {
+			return p.data[topic][offset], nil
 		} else {
+			// Block this until next value hasn't come
 			return message.Message{}, ErrorOffsetOverflow
 		}
 	} else {
 		return message.Message{}, ErrorTopicDoesNotExist
 	}
+}
+
+func (p *PublisherImpl) receive(topic string) {
+	go func(t string) {
+		for {
+			if v, ok := p.checkTopic(t); ok {
+				msg := <-v
+				p.data[t] = append(p.data[t], msg)
+
+				sz, _ := p.sizes.Load(topic)
+				p.sizes.Store(topic, sz.(int)+1)
+			}
+		}
+	}(topic)
 }
