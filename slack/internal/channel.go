@@ -1,5 +1,7 @@
 package internal
 
+import "sync"
+
 type Chat interface {
 	Send(Message)
 	Size() int
@@ -15,23 +17,29 @@ type GroupChat interface {
 }
 
 type Channel struct {
-	users []User
-	msgs  []Message
+	users    []User
+	msgs     []Message
+	add      chan User
+	leave    chan User
+	incoming chan Message
+	lock     *sync.RWMutex
 }
 
 func NewChat(user1, user2 User) Chat {
-	ch := &Channel{
-		users: []User{user1, user2},
-		msgs:  []Message{},
-	}
+	ch := NewGroup(user1)
 
-	user1.Connect(ch, 0)
-	user2.Connect(ch, 0)
+	ch.Join(user2)
 
 	return ch
 }
 
 func (c *Channel) Send(msg Message) {
+	c.incoming <- msg
+}
+
+func (c *Channel) _send(msg Message) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	c.msgs = append(c.msgs, msg)
 	for _, u := range c.users {
 		u.Notify()
@@ -39,34 +47,72 @@ func (c *Channel) Send(msg Message) {
 }
 
 func (c *Channel) Size() int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	return len(c.msgs)
 }
 
 func (c *Channel) Get(offset int) Message {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	return c.msgs[offset]
 }
 
 func NewGroup(user1 User) GroupChat {
 	ch := &Channel{
-		users: []User{user1},
-		msgs:  []Message{},
+		users:    []User{user1},
+		msgs:     []Message{},
+		add:      make(chan User),
+		leave:    make(chan User),
+		incoming: make(chan Message),
+		lock:     &sync.RWMutex{},
 	}
 
 	user1.Connect(ch, 0)
+	go func() {
+		ch.handleEvents()
+	}()
 
 	return ch
 }
 
 func (ch *Channel) Join(u User) {
-	ch.users = append(ch.users, u)
-	u.Connect(ch, ch.Size())
+	ch.add <- u
 }
 
+func (ch *Channel) _join(u User) {
+
+	// ch.lock.Lock()
+	// defer ch.lock.Unlock()
+	ch.users = append(ch.users, u)
+	u.Connect(ch, ch.Size())
+
+}
 func (ch *Channel) Leave(u User) {
+	ch.leave <- u
+}
+
+func (ch *Channel) _leave(u User) {
+	// ch.lock.Lock()
+	// defer ch.lock.Unlock()
 	for i, user := range ch.users {
 		if u == user {
 			ch.users = append(ch.users[:i], ch.users[i+1:]...)
 		}
 	}
 	u.Disconnect(ch)
+}
+
+func (ch *Channel) handleEvents() {
+	for {
+		select {
+		case u := <-ch.add:
+			ch._join(u)
+		case u := <-ch.leave:
+			ch._leave(u)
+		case msg := <-ch.incoming:
+			ch._send(msg)
+		}
+	}
+
 }
