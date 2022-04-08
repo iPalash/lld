@@ -82,8 +82,6 @@ func (ch *Channel) Join(u User) {
 
 func (ch *Channel) _join(u User) {
 
-	// ch.lock.Lock()
-	// defer ch.lock.Unlock()
 	ch.users = append(ch.users, u)
 	u.Connect(ch, ch.Size())
 
@@ -93,8 +91,6 @@ func (ch *Channel) Leave(u User) {
 }
 
 func (ch *Channel) _leave(u User) {
-	// ch.lock.Lock()
-	// defer ch.lock.Unlock()
 	for i, user := range ch.users {
 		if u == user {
 			ch.users = append(ch.users[:i], ch.users[i+1:]...)
