@@ -28,7 +28,9 @@ func (t *TopicImpl) Add(msg Message) {
 	t.Msgs = append(t.Msgs, msg)
 	go func() {
 		for _, sub := range t.subs {
-			sub.Notify()
+			go func(sub Subscriber) {
+				sub.Notify()
+			}(sub)
 		}
 	}()
 }
