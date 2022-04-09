@@ -9,6 +9,8 @@ A slack like messaging platform
 
 ![Flow](flow.png)
 
+![HLD](hld.png)
+
 ## Interfaces
 ```lang
 ```
