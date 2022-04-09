@@ -44,5 +44,5 @@ func NewOrder(price int, volume int, orderType OrderType) Order {
 }
 
 func (o Order) String() string {
-	return fmt.Sprintf("%s order for %d qty at %d price", o.Type, o.Volume, o.Price)
+	return fmt.Sprintf("%s|%d|%d@%d", o.Type, o.ID, o.Volume, o.Price)
 }

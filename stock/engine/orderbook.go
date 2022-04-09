@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"context"
 	"fmt"
-	"time"
 )
 
 type Orderbook interface {
@@ -49,14 +48,21 @@ func NewOrderBook(ctx context.Context) Orderbook {
 	return ob
 }
 
-func (ob *OrderBookImpl) addTrade(buy, sell *Order) {
-	var vol int
+func (ob *OrderBookImpl) addTrade(buy, sell *Order, side OrderType) {
+	var vol, price int
 	if buy.Volume < sell.Volume {
 		vol = buy.Volume
 	} else {
 		vol = sell.Volume
 	}
-	trade := &Trade{BuyOrderID: buy.ID, SellOrderID: sell.ID, Volume: vol, Price: buy.Price}
+
+	if side == BUY {
+		price = sell.Price
+	} else {
+		price = buy.Price
+	}
+
+	trade := &Trade{BuyOrderID: buy.ID, SellOrderID: sell.ID, Volume: vol, Price: price}
 	ob.history = append(ob.history, trade)
 	fmt.Println(trade)
 	buy.Volume -= vol
@@ -66,7 +72,7 @@ func (ob *OrderBookImpl) addTrade(buy, sell *Order) {
 
 func (ob *OrderBookImpl) _buy(o Order) {
 	for len(ob.sells) > 0 && ob.sells[0].Price <= o.Price {
-		ob.addTrade(&o, &ob.sells[0])
+		ob.addTrade(&o, &ob.sells[0], BUY)
 
 		if ob.sells[0].Volume == 0 {
 			heap.Pop(&ob.sells)
@@ -86,7 +92,7 @@ func (ob *OrderBookImpl) Buy(o Order) {
 func (ob *OrderBookImpl) _sell(o Order) {
 
 	for len(ob.buys) > 0 && ob.buys[0].Price >= o.Price {
-		ob.addTrade(&ob.buys[0], &o)
+		ob.addTrade(&ob.buys[0], &o, SELL)
 
 		if ob.buys[0].Volume == 0 {
 			heap.Pop(&ob.buys)
@@ -134,18 +140,21 @@ func (ob *OrderBookImpl) String() string {
 }
 
 func (ob *OrderBookImpl) process(ctx context.Context) {
-	ticker := time.NewTicker(time.Second)
+	// ticker := time.NewTicker(time.Second)
 	loop := true
 	for loop {
 		select {
 		case o := <-ob.buy:
 			ob._buy(o)
+			fmt.Println("Orderbook\n", ob)
 		case o := <-ob.sell:
 			ob._sell(o)
+			fmt.Println("Orderbook\n", ob)
 		case o := <-ob.cancel:
 			ob._cancel(o)
-		case <-ticker.C:
 			fmt.Println("Orderbook\n", ob)
+		// case <-ticker.C:
+		// fmt.Println("Orderbook\n", ob)
 		case <-ctx.Done():
 			fmt.Println("Shutting down")
 			loop = false
