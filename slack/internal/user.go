@@ -9,7 +9,7 @@ import (
 
 type User interface {
 	Connect(Chat, int)
-	Notify()
+	Notify(Chat)
 	Message(string) Message
 	Disconnect(Chat)
 }
@@ -18,38 +18,43 @@ type UserImpl struct {
 	Name       string
 	ID         int
 	offset     int
-	block      chan struct{}
-	disconnect sync.Map
+	block      *sync.Map
+	disconnect *sync.Map
 }
 
 func NewUser(name string) User {
 	return &UserImpl{
-		Name:   name,
-		ID:     rand.Int(),
-		offset: 0,
-		block:  make(chan struct{}, 1),
+		Name:       name,
+		ID:         rand.Int(),
+		offset:     0,
+		block:      &sync.Map{},
+		disconnect: &sync.Map{},
 	}
 }
 
 func (u *UserImpl) Connect(ch Chat, offset int) {
 	stop := make(chan struct{})
 	u.disconnect.Store(ch, stop)
-	go func(offset int, chn chan struct{}) {
+
+	unblock := make(chan struct{})
+	u.block.Store(ch, unblock)
+	go func(offset int, chn chan struct{}, unblock chan struct{}) {
 		u.offset = offset
-		for {
+		loop := true
+		for loop {
 			for u.offset < ch.Size() {
 				u.receiveMessage(ch.Get(u.offset))
 				u.offset += 1
 			}
 			select {
-			case <-u.block:
+			case <-unblock:
 				continue
 			case <-stop:
-				break
+				loop = false
 			}
 
 		}
-	}(offset, stop)
+	}(offset, stop, unblock)
 }
 
 func (u *UserImpl) Disconnect(ch Chat) {
@@ -63,8 +68,9 @@ func (u *UserImpl) receiveMessage(msg Message) {
 	}
 }
 
-func (u *UserImpl) Notify() {
-	u.block <- struct{}{}
+func (u *UserImpl) Notify(ch Chat) {
+	unblock, _ := u.block.Load(ch)
+	unblock.(chan struct{}) <- struct{}{}
 }
 
 func (u *UserImpl) Message(text string) Message {

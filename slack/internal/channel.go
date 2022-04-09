@@ -1,6 +1,8 @@
 package internal
 
-import "sync"
+import (
+	"sync"
+)
 
 type Chat interface {
 	Send(Message)
@@ -22,6 +24,7 @@ type Channel struct {
 	add      chan User
 	leave    chan User
 	incoming chan Message
+	stop     chan struct{}
 	lock     *sync.RWMutex
 }
 
@@ -42,7 +45,9 @@ func (c *Channel) _send(msg Message) {
 	defer c.lock.Unlock()
 	c.msgs = append(c.msgs, msg)
 	for _, u := range c.users {
-		u.Notify()
+		go func(u User) {
+			u.Notify(c)
+		}(u)
 	}
 }
 
@@ -65,6 +70,7 @@ func NewGroup(user1 User) GroupChat {
 		add:      make(chan User),
 		leave:    make(chan User),
 		incoming: make(chan Message),
+		stop:     make(chan struct{}),
 		lock:     &sync.RWMutex{},
 	}
 
@@ -97,10 +103,14 @@ func (ch *Channel) _leave(u User) {
 		}
 	}
 	u.Disconnect(ch)
+	if len(ch.users) == 0 {
+		ch.stop <- struct{}{}
+	}
 }
 
 func (ch *Channel) handleEvents() {
-	for {
+	loop := true
+	for loop {
 		select {
 		case u := <-ch.add:
 			ch._join(u)
@@ -108,6 +118,8 @@ func (ch *Channel) handleEvents() {
 			ch._leave(u)
 		case msg := <-ch.incoming:
 			ch._send(msg)
+		case <-ch.stop:
+			loop = false
 		}
 	}
 

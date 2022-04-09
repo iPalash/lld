@@ -13,6 +13,7 @@ func TestNewChat(t *testing.T) {
 		chat.Send(u1.Message("hello"))
 		time.Sleep(time.Millisecond * 10)
 		chat.Send(u2.Message("world"))
+		time.Sleep(time.Millisecond * 10)
 	})
 }
 
@@ -31,5 +32,7 @@ func TestNewGroup(t *testing.T) {
 		group.Leave(u2) // user 2 leaves
 		time.Sleep(time.Millisecond * 10)
 		group.Send(u1.Message("hello again"))
+		group.Leave(u1)
+		group.Leave(u3)
 	})
 }
